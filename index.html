@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>COMSOL 案例库智能检索</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f2f4f8; color: #1a1a2e; min-height: 100vh;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 60%, #3a7bd5 100%);
+    padding: 34px 18px 26px; color: #fff; text-align: center;
+    border-radius: 0 0 24px 24px; box-shadow: 0 4px 18px rgba(30,60,114,.25);
+  }
+  .hero h1 { font-size: 21px; letter-spacing: 1px; }
+  .hero p { font-size: 12.5px; opacity: .82; margin-top: 7px; }
+  .search-box {
+    margin: 16px auto 0; max-width: 560px; display: flex; background: #fff;
+    border-radius: 14px; overflow: hidden; box-shadow: 0 3px 12px rgba(0,0,0,.18);
+  }
+  .search-box input {
+    flex: 1; border: none; outline: none; padding: 13px 14px; font-size: 15px; color: #222;
+  }
+  .search-box button {
+    border: none; background: #2a5298; color: #fff; padding: 0 20px; font-size: 15px;
+    cursor: pointer; font-weight: 600;
+  }
+  .chips { max-width: 560px; margin: 13px auto 0; display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+  .chip {
+    background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.35); color: #fff;
+    font-size: 12px; padding: 4px 11px; border-radius: 999px; cursor: pointer; user-select: none;
+  }
+  .chip:active { background: rgba(255,255,255,.32); }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 16px 14px 60px; }
+  .status { font-size: 13px; color: #778; margin: 6px 2px 12px; }
+  .card {
+    background: #fff; border-radius: 14px; padding: 15px 15px 13px; margin-bottom: 12px;
+    box-shadow: 0 1px 5px rgba(20,40,80,.07);
+  }
+  .card h3 { font-size: 15.5px; line-height: 1.4; color: #16305e; }
+  .card .desc { font-size: 12.5px; color: #667; margin-top: 6px; line-height: 1.55;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { background: #eef3fb; color: #3a62a8; font-size: 11px; padding: 2.5px 9px; border-radius: 999px; }
+  .btns { display: flex; gap: 8px; margin-top: 11px; }
+  .btn {
+    flex: 1; text-align: center; text-decoration: none; font-size: 13px; font-weight: 600;
+    padding: 9px 0; border-radius: 9px; transition: opacity .15s;
+  }
+  .btn:active { opacity: .75; }
+  .btn-zh { background: #2a5298; color: #fff; }
+  .btn-en { background: #e8edf6; color: #2a5298; }
+  .btn-home { background: #f5f5f7; color: #667; flex: .7; }
+  .btn .sz { font-weight: 400; font-size: 11px; opacity: .75; }
+  .empty { text-align: center; color: #99a; padding: 46px 20px; font-size: 14px; line-height: 2; }
+  .loading { text-align: center; color: #8aa; padding: 40px; font-size: 14px; }
+  .match-note { font-size: 11.5px; color: #b08a3e; background: #fdf6e8; border-radius: 8px;
+    padding: 7px 11px; margin-bottom: 12px; line-height: 1.6; }
+  .footer { text-align: center; color: #aab; font-size: 11.5px; line-height: 1.9; padding: 10px 20px 0; }
+  .footer a { color: #8aa8d8; text-decoration: none; }
+  /* ===== 定制需求弹窗 ===== */
+  .custom-link { display: block; text-align: center; margin: 18px auto 0; font-size: 13px;
+    color: #b08a3e; text-decoration: underline; cursor: pointer; background: none; border: none; }
+  .mask { position: fixed; inset: 0; background: rgba(10,20,40,.55); z-index: 99;
+    display: none; align-items: flex-end; justify-content: center; }
+  .mask.show { display: flex; }
+  .sheet { background: #fff; width: 100%; max-width: 520px; border-radius: 20px 20px 0 0;
+    padding: 22px 20px 30px; max-height: 88vh; overflow-y: auto; animation: up .25s ease; }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sheet h2 { font-size: 17px; color: #16305e; text-align: center; }
+  .sheet .sub { font-size: 12.5px; color: #889; text-align: center; margin-top: 6px; line-height: 1.7; }
+  .sheet .close { float: right; border: none; background: none; font-size: 20px; color: #99a; cursor: pointer; }
+  .qr-box { text-align: center; margin: 16px 0 6px; }
+  .qr-box img { width: 200px; height: 200px; border-radius: 12px; border: 1px solid #eee; object-fit: cover; }
+  .qr-box .price { font-size: 15px; color: #d4700e; font-weight: 700; margin-top: 8px; }
+  .step-btn { display: block; width: 100%; margin-top: 16px; padding: 12px; border: none; border-radius: 11px;
+    background: #2a5298; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .sheet label { display: block; font-size: 13px; color: #445; margin: 14px 0 6px; font-weight: 600; }
+  .sheet select, .sheet textarea { width: 100%; border: 1px solid #dde; border-radius: 10px;
+    padding: 10px 12px; font-size: 14px; font-family: inherit; outline: none; background: #fafbfd; }
+  .sheet textarea { min-height: 90px; resize: vertical; }
+  .sheet .tip { font-size: 11.5px; color: #99a; margin-top: 5px; line-height: 1.6; }
+  .done-ico { text-align: center; font-size: 44px; margin: 10px 0 4px; }
+  .req-preview { background: #f5f7fb; border-radius: 10px; padding: 10px 12px; font-size: 12.5px;
+    color: #556; margin-top: 12px; line-height: 1.7; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>⚡ COMSOL 案例库智能检索</h1>
+  <p>收录官方案例库 1743 个仿真案例 · 用自然语言描述你的需求</p>
+  <div class="search-box">
+    <input id="q" type="text" placeholder="例如：锂电池放电发热仿真" enterkeyhint="search">
+    <button id="go">搜索</button>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="wrap">
+  <div class="status" id="status">正在加载案例库…</div>
+  <div id="results"></div>
+  <div class="footer">
+    案例 PDF 均跳转 COMSOL 官网（cn.comsol.com）下载<br>
+    检索结果仅供参考，模型版权归原作者所有
+  </div>
+</div>
+
+<!-- ===== 定制需求弹窗（三步：提示 → 支付 → 填需求 → 完成） ===== -->
+<div class="mask" id="mask">
+  <div class="sheet">
+    <button class="close" onclick="closeCustom()">✕</button>
+
+    <!-- 第 1 步：未找到提示 + 赞赏码 -->
+    <div id="step1">
+      <h2>🙁 官方库未检索到匹配案例</h2>
+      <p class="sub">已收录的 1743 个官方案例中没有覆盖你的需求<br>可以赞赏 <b style="color:#d4700e">0.9 元</b> 试用「高级定制版」<br>我们将按你的需求提供对应的 COMSOL 源文件（.mph）</p>
+      <div class="qr-box">
+        <img id="qrImg" src="pay_qrcode.png" alt="微信赞赏码"
+             onerror="this.style.display='none';document.getElementById('qrTip').style.display='block'">
+        <div id="qrTip" style="display:none;font-size:12.5px;color:#c80;padding:20px 10px;border:1px dashed #dda;border-radius:10px;">
+          ⚠️ 赞赏码图片暂未上传<br>（请将微信赞赏码保存为 pay_qrcode.png 放在网页同目录）
+        </div>
+        <div class="price">微信扫码赞赏 ¥0.90</div>
+      </div>
+      <button class="step-btn" onclick="goStep2()">我已完成支付，填写需求 →</button>
+      <p class="sub" style="margin-top:10px">支付即视为同意：定制结果为学习参考资料，非商业交付</p>
+    </div>
+
+    <!-- 第 2 步：填写版本 + 需求 -->
+    <div id="step2" style="display:none">
+      <h2>📋 提交你的定制需求</h2>
+      <label>你使用的 COMSOL 版本</label>
+      <select id="fVer">
+        <option value="">请选择版本</option>
+        <option>COMSOL 6.1</option>
+        <option>COMSOL 6.2</option>
+        <option>COMSOL 6.4</option>
+      </select>
+      <label>需求描述</label>
+      <textarea id="fReq" placeholder="尽量描述清楚：物理场、几何、工况、想得到的输出……&#10;例如：液冷板流道拓扑优化，入口 0.1 m/s，目标压降最小且温度均匀"></textarea>
+      <p class="tip">💡 描述越具体，交付的模型越贴合你的需求</p>
+      <button class="step-btn" onclick="submitReq()">提交需求</button>
+    </div>
+
+    <!-- 第 3 步：完成 -->
+    <div id="step3" style="display:none">
+      <div class="done-ico">✅</div>
+      <h2>需求已记录</h2>
+      <p class="sub">预计 <b style="color:#2a5298" id="etaText">3~5 个工作日</b> 内完成模型源文件<br>请按下面方式把需求发给我们，以便交付时联系你</p>
+      <div class="req-preview" id="reqPreview"></div>
+      <button class="step-btn" id="copyBtn" onclick="copyReq()">📋 复制需求内容</button>
+      <p class="sub" style="margin-top:10px" id="deliverTip">复制后回到公众号，直接发送给后台留言即可<br>完成后我们会通过公众号联系你交付源文件</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== 中文术语 → 英文关键词 映射 ======
+const SYN = {
+  '锂电池':'lithium ion battery','锂离子':'lithium ion','电池':'battery','燃料电池':'fuel cell',
+  '换热器':'heat exchanger','散热':'heat sink cooling','传热':'heat transfer','热传导':'heat conduction',
+  '热仿真':'thermal heat','发热':'heating thermal','加热':'heating','冷却':'cooling','温度':'temperature',
+  '流体':'fluid flow','流动':'flow','湍流':'turbulent','层流':'laminar','多相流':'multiphase flow',
+  '管道':'pipe','泵':'pump','搅拌':'mixing stirred','微流控':'microfluidic',
+  '声学':'acoustic','声音':'acoustic sound','扬声器':'loudspeaker','麦克风':'microphone','消声':'muffler',
+  '超声波':'ultrasonic','噪声':'noise',
+  '结构':'structural','应力':'stress','应变':'strain','振动':'vibration','模态':'eigenfrequency modal',
+  '疲劳':'fatigue','断裂':'fracture','接触':'contact','屈曲':'buckling','梁':'beam','壳':'shell',
+  '压电':'piezoelectric','压阻':'piezoresistive','传感器':'sensor','执行器':'actuator','谐振':'resonator',
+  '电磁':'electromagnetic','电场':'electric field','磁场':'magnetic field','电机':'electric motor',
+  '变压器':'transformer','线圈':'coil','感应加热':'induction heating','永磁':'permanent magnet',
+  '天线':'antenna','微波':'microwave','射频':'rf','波导':'waveguide','滤波器':'filter','谐振腔':'cavity',
+  '光学':'optic','激光':'laser','光纤':'fiber optic','光子':'photonic','透镜':'lens','衍射':'diffraction',
+  '等离子体':'plasma','电弧':'arc','放电':'discharge','击穿':'breakdown',
+  '腐蚀':'corrosion','电镀':'electroplating','电解':'electrolysis','电化学':'electrochemistry',
+  '半导体':'semiconductor','太阳能':'solar','光伏':'photovoltaic','燃料电池':'fuel cell',
+  '生物':'bio','医学':'medical','血液':'blood','组织':'tissue','肿瘤':'tumor','消融':'ablation',
+  '超材料':'metamaterial','膜':'membrane','多孔':'porous','渗流':'seepage','地下水':'groundwater',
+  '催化':'catalyst','反应器':'reactor','燃烧':'combustion','颗粒':'particle','两相':'two-phase',
+  '火星':'mars','探测器':'lander','缓冲':'impact absorber','冲击':'impact shock',
+  '热应力':'thermal stress','焦耳热':'joule heating','热电':'thermoelectric','磁热':'magnetocaloric',
+  '液冷':'liquid cooling cold plate','冷板':'cold plate','拓扑优化':'topology optimization','拓扑':'topology',
+  '优化':'optimization','热管理':'thermal management','均热板':'vapor chamber','热管':'heat pipe',
+  '相变':'phase change','流道':'flow channel','芯片':'chip','叶轮':'impeller','涡轮':'turbine',
+  '翼型':'airfoil','机翼':'airfoil wing','储氢':'hydrogen storage','氢能':'hydrogen','制氢':'hydrogen production',
+  '水电解':'water electrolysis','超级电容':'supercapacitor','无线充电':'wireless power transfer charging',
+  '电磁兼容':'emc emi','屏蔽':'shielding','电缆':'cable','母线':'busbar','断路器':'circuit breaker',
+  '耳机':'earphone headphone','隔声':'sound insulation','吸声':'sound absorption','水声':'underwater acoustic',
+  '超表面':'metasurface','天线阵':'antenna array','雷达':'radar','毫米波':'millimeter wave','太赫兹':'terahertz',
+  '储热':'thermal energy storage','地热':'geothermal','边坡':'slope stability','隧道':'tunnel','地震':'seismic earthquake',
+  '流固耦合':'fluid-structure interaction','热固耦合':'thermal structure interaction','磁致伸缩':'magnetostriction',
+  '形状记忆':'shape memory','超弹性':'hyperelastic','橡胶':'rubber hyperelastic','粘弹性':'viscoelastic',
+  '蠕变':'creep','焊接':'welding','增材制造':'additive manufacturing','3d打印':'3d printing additive',
+  '干燥':'drying','凝固':'solidification','融化':'melting','蒸发':'evaporation','冷凝':'condensation',
+  '沸腾':'boiling','气泡':'bubble','液滴':'droplet','润湿':'wetting','表面张力':'surface tension',
+  '毛细':'capillary','电渗':'electroosmotic','电泳':'electrophoresis','介电泳':'dielectrophoresis',
+  '细胞':'cell','药物':'drug','支架':'stent','心脏':'heart cardiac','微波消融':'microwave ablation',
+  '核磁共振':'mri magnetic resonance','超导':'superconductor','磁悬浮':'magnetic levitation maglev',
+  '涡流':'eddy current','无损检测':'nondestructive testing','探伤':'flaw detection','电机绕组':'motor winding',
+  '锂电池组':'battery pack','电池组':'battery pack','极耳':'battery tab','集流体':'current collector'
+};
+
+// 口语化停用词：匹配前先从查询中剔除
+const STOPWORDS = ['我想做','我想要','我想','我要','做一个','做个','一个','一下','请问','怎么','如何','有没有','关于','可以','需要','的','了','呢','吧','啊','做','用'];
+
+const SAMPLES = ['锂电池放电发热','换热器设计','扬声器声学仿真','天线辐射方向图','感应加热','微流控混合','结构振动模态','等离子体放电'];
+const PAGE = 20;
+
+let DB = null, allShown = 0, lastResults = [];
+
+function fmtSize(b){ return b > 1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB'; }
+
+// 查询 → 关键词集合（英文小写词 + 中文词）
+function expandQuery(q){
+  q = q.toLowerCase().trim();
+  // 剔除口语化停用词
+  for (const w of STOPWORDS) q = q.split(w).join(' ');
+  const terms = new Set();
+  // 英文单词
+  (q.match(/[a-z0-9-]+/g) || []).forEach(w => { if (w.length > 1) terms.add(w); });
+  // 中文片段
+  const zhRuns = q.match(/[\u4e00-\u9fff]+/g) || [];
+  zhRuns.forEach(run => {
+    if (run.length >= 2) terms.add(run);
+    // 同义词展开：命中最长词优先
+    let hitSyn = false;
+    const keys = Object.keys(SYN).sort((a, b) => b.length - a.length);
+    for (const k of keys) {
+      if (run.includes(k)) {
+        hitSyn = true;
+        terms.add(k);
+        SYN[k].split(' ').forEach(w => terms.add(w));
+        terms.add(SYN[k]);
+      }
+    }
+    // 双字滑窗（仅在该片段没有命中任何术语时兜底）
+    if (!hitSyn && run.length >= 2 && run.length <= 10)
+      for (let i = 0; i < run.length - 1; i++) terms.add(run.substr(i, 2));
+  });
+  return [...terms];
+}
+
+function search(q){
+  const terms = expandQuery(q);
+  const zhTerms = terms.filter(t => /[\u4e00-\u9fff]/.test(t));
+  const enTerms = terms.filter(t => !/[\u4e00-\u9fff]/.test(t) && t.length > 2);
+  const scored = [];
+  for (const m of DB) {
+    let s = 0;
+    const tagStr = m.tags.join('|');
+    for (const t of zhTerms) {
+      if (tagStr.includes(t)) s += 12;
+      else if (t.length >= 3 && m.t.toLowerCase().includes(t)) s += 4;
+    }
+    for (const t of enTerms) {
+      if (tagStr.toLowerCase().includes(t)) s += 6;
+      if (m.t.toLowerCase().includes(t)) s += 5;
+      const hits = m.txt.split(t).length - 1;
+      s += Math.min(hits, 4);
+    }
+    if (s > 0) scored.push([s, m]);
+  }
+  scored.sort((a, b) => b[0] - a[0]);
+  // 过滤低分噪声：保留得分 >= max(8, 最高分的35%)；若过滤后为空则保留前 10 个
+  const cutoff = scored.length ? Math.max(8, scored[0][0] * 0.35) : 0;
+  const strong = scored.filter(x => x[0] >= cutoff);
+  return { terms, scored: strong.length ? strong : scored.slice(0, 10) };
+}
+
+function cardHTML(m){
+  const tags = m.tags.slice(0, 5).map(t => `<span class="tag">${t}</span>`).join('');
+  let btns = '';
+  if (m.zh) btns += `<a class="btn btn-zh" href="${m.zh.u}" target="_blank" rel="noopener">中文 PDF <span class="sz">${fmtSize(m.zh.s)}</span></a>`;
+  if (m.en) btns += `<a class="btn btn-en" href="${m.en.u}" target="_blank" rel="noopener">English <span class="sz">${fmtSize(m.en.s)}</span></a>`;
+  btns += `<a class="btn btn-home" href="${m.u}" target="_blank" rel="noopener">案例主页</a>`;
+  return `<div class="card">
+    <h3>${m.t}</h3>
+    ${m.desc ? `<div class="desc">${m.desc}</div>` : ''}
+    <div class="tags">${tags}</div>
+    <div class="btns">${btns}</div>
+  </div>`;
+}
+
+function render(list, append){
+  const el = document.getElementById('results');
+  const html = list.map(cardHTML).join('');
+  if (append) el.insertAdjacentHTML('beforeend', html); else el.innerHTML = html;
+}
+
+function doSearch(){
+  const q = document.getElementById('q').value;
+  const st = document.getElementById('status');
+  if (!q.trim()) { st.textContent = '请输入想仿真的内容，中英文都可以'; return; }
+  if (!DB) { st.textContent = '案例库还在加载中，请稍等…'; return; }
+  const { terms, scored } = search(q);
+  lastResults = scored.map(x => x[1]);
+  allShown = PAGE;
+  if (!lastResults.length) {
+    st.textContent = '';
+    document.getElementById('results').innerHTML =
+      `<div class="empty">😕 官方案例库中没有找到与「${q}」匹配的内容<br>试试更通用的词，如"热仿真"、"流体"、"天线"</div>
+       <button class="custom-link" onclick="openCustom()">💎 没找到？0.9 元定制你的专属案例模型 →</button>`;
+    return;
+  }
+  const exact = scored[0][0] >= 20;
+  st.innerHTML = `找到 <b>${lastResults.length}</b> 个相关案例${lastResults.length > PAGE ? '，按匹配度排序' : ''}`;
+  render(lastResults.slice(0, PAGE), false);
+  if (!exact)
+    st.innerHTML += `<div class="match-note">💡 没有完全精确匹配的案例，已为你按相关度放宽推荐，可换个描述再试。</div>`;
+  // 结果列表末尾固定放"定制"入口
+  const cl = document.createElement('button');
+  cl.className = 'custom-link';
+  cl.textContent = '没找到想要的？0.9 元定制你的专属案例模型 →';
+  cl.onclick = openCustom;
+  if (lastResults.length > PAGE) {
+    const more = document.createElement('div');
+    more.innerHTML = `<button id="more" style="width:100%;padding:11px;border:none;border-radius:10px;background:#e8edf6;color:#2a5298;font-size:14px;font-weight:600;">加载更多（还剩 ${lastResults.length - PAGE} 个）</button>`;
+    document.getElementById('results').appendChild(more);
+    document.getElementById('more').onclick = () => {
+      render(lastResults.slice(allShown, allShown + PAGE), true);
+      allShown += PAGE;
+      more.remove();
+      if (allShown < lastResults.length) document.getElementById('results').appendChild(more),
+        more.querySelector('#more').textContent = `加载更多（还剩 ${lastResults.length - allShown} 个）`;
+        if (allShown >= lastResults.length) document.getElementById('results').appendChild(cl);
+    };
+  } else {
+    document.getElementById('results').appendChild(cl);
+  }
+}
+
+// ====== 定制需求流程 ======
+const CONFIG = {
+  etaDays: '3~5 个工作日',   // 交付周期提示
+  formUrl: '',               // 可选：若建了腾讯问卷/金数据，把链接填这里，提交时会一并打开
+};
+
+function openCustom(){
+  document.getElementById('step1').style.display = 'block';
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step3').style.display = 'none';
+  document.getElementById('mask').classList.add('show');
+}
+function closeCustom(){ document.getElementById('mask').classList.remove('show'); }
+function goStep2(){
+  document.getElementById('step1').style.display = 'none';
+  document.getElementById('step2').style.display = 'block';
+}
+function submitReq(){
+  const ver = document.getElementById('fVer').value;
+  const req = document.getElementById('fReq').value.trim();
+  if (!ver) { alert('请选择你使用的 COMSOL 版本'); return; }
+  if (req.length < 5) { alert('请把需求描述得再具体一点（至少 5 个字）'); return; }
+  const text = `【COMSOL 定制需求】\n版本：${ver}\n需求：${req}`;
+  document.getElementById('reqPreview').textContent = text;
+  document.getElementById('etaText').textContent = CONFIG.etaDays;
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step3').style.display = 'block';
+  if (CONFIG.formUrl) window.open(CONFIG.formUrl, '_blank');
+}
+function copyReq(){
+  const text = document.getElementById('reqPreview').textContent;
+  const btn = document.getElementById('copyBtn');
+  const done = () => { btn.textContent = '✅ 已复制，去公众号后台粘贴发送'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch(e) {}
+  document.body.removeChild(ta);
+}
+document.getElementById('mask').addEventListener('click', e => {
+  if (e.target.id === 'mask') closeCustom();
+});
+
+// 初始化
+document.getElementById('go').onclick = doSearch;
+document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+document.getElementById('chips').innerHTML = SAMPLES.map(s => `<span class="chip">${s}</span>`).join('');
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+  document.getElementById('q').value = c.textContent; doSearch();
+});
+
+fetch('data.json').then(r => r.json()).then(d => {
+  DB = d;
+  document.getElementById('status').textContent = `已收录 ${d.length} 个案例，输入需求开始检索 👆`;
+}).catch(() => {
+  document.getElementById('status').textContent = '⚠️ 案例库加载失败，请刷新重试';
+});
+</script>
+</body>
+</html>
